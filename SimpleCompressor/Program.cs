@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 
@@ -15,6 +16,13 @@ namespace SimpleCompressor
             Compress(filepath);
 
             Decompress(Path.ChangeExtension(filepath, "compressed"));
+
+            //using (var reader = new StreamReader(filepath))
+            //{
+            //    var bmp = ConvertToBitmap(reader.ReadToEnd(), 100);
+
+            //    bmp.Save(Path.ChangeExtension(filepath, "bmp"), System.Drawing.Imaging.ImageFormat.Bmp);
+            //}
         }
 
         private static void Compress(string filepath)
@@ -147,6 +155,22 @@ namespace SimpleCompressor
             }
 
             return r;
+        }
+
+        private static Bitmap ConvertToBitmap(string s, int width)
+        {
+            var bmp = new Bitmap(width, width);
+
+            for (var i = 0; i < s.Length; i++)
+            {
+                var y = i / width;
+
+                var x = i - (y * width);
+
+                bmp.SetPixel(x, y, Color.FromArgb(s[i], s[i], s[i]));    
+            }
+
+            return bmp;
         }
     }
 }
