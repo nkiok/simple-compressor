@@ -53,14 +53,7 @@ namespace SimpleCompressor
 
                     var bitvector = new BitVector32(0);
 
-                    var sections = new List<BitVector32.Section>();
-
-                    sections.Add(BitVector32.CreateSection(15));
-                    sections.Add(BitVector32.CreateSection(15, sections[0]));
-                    sections.Add(BitVector32.CreateSection(15, sections[1]));
-                    sections.Add(BitVector32.CreateSection(15, sections[2]));
-                    sections.Add(BitVector32.CreateSection(15, sections[3]));
-                    sections.Add(BitVector32.CreateSection(15, sections[4]));
+                    var sections = CreateBitSections(6);
 
                     for (var i = 0; i < bytesRead; i++)
                     {
@@ -72,6 +65,20 @@ namespace SimpleCompressor
                     bytesToRead -= bytesRead;
                 } while (bytesToRead > 0);
             }
+        }
+
+        private static List<BitVector32.Section> CreateBitSections(int numberOfSections)
+        {
+            var sections = new List<BitVector32.Section>();
+
+            for (var i = 0; i < numberOfSections; i++)
+            {
+                sections.Add(i == 0
+                    ? BitVector32.CreateSection(15)
+                    : BitVector32.CreateSection(15, sections[i - 1]));
+            }
+
+            return sections;
         }
 
         private static void Decompress(string filepath)
@@ -95,14 +102,7 @@ namespace SimpleCompressor
 
                     bytesToRead -= 4;
 
-                    var sections = new List<BitVector32.Section>();
-
-                    sections.Add(BitVector32.CreateSection(15));
-                    sections.Add(BitVector32.CreateSection(15, sections[0]));
-                    sections.Add(BitVector32.CreateSection(15, sections[1]));
-                    sections.Add(BitVector32.CreateSection(15, sections[2]));
-                    sections.Add(BitVector32.CreateSection(15, sections[3]));
-                    sections.Add(BitVector32.CreateSection(15, sections[4]));
+                    var sections = CreateBitSections(6);
 
                     for (var i = 0; i < 6; i++)
                     {
