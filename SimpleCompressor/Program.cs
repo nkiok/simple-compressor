@@ -41,7 +41,9 @@ namespace SimpleCompressor
                 writer.WriteByte((byte)map.Count);
                 writer.Write(map.ToArray());
 
-                const int chunkSize = 6;
+                var bitsRequired = GetMinimumNumberOfBits(map.Count);
+
+                var chunkSize = 32 / bitsRequired;
 
                 var bytesToRead = reader.Length;
 
@@ -53,7 +55,7 @@ namespace SimpleCompressor
 
                     var bitvector = new BitVector32(0);
 
-                    var sections = CreateBitSections(6);
+                    var sections = CreateBitSections(chunkSize, (short)map.Count);
 
                     for (var i = 0; i < bytesRead; i++)
                     {
@@ -65,20 +67,6 @@ namespace SimpleCompressor
                     bytesToRead -= bytesRead;
                 } while (bytesToRead > 0);
             }
-        }
-
-        private static List<BitVector32.Section> CreateBitSections(int numberOfSections)
-        {
-            var sections = new List<BitVector32.Section>();
-
-            for (var i = 0; i < numberOfSections; i++)
-            {
-                sections.Add(i == 0
-                    ? BitVector32.CreateSection(15)
-                    : BitVector32.CreateSection(15, sections[i - 1]));
-            }
-
-            return sections;
         }
 
         private static void Decompress(string filepath)
@@ -96,15 +84,19 @@ namespace SimpleCompressor
 
                 bytesToRead -= mapCount + 1;
 
+                var bitsRequired = GetMinimumNumberOfBits(map.Length);
+
+                var chunkSize = 32 / bitsRequired;
+
                 do
                 {
                     var bitvector = new BitVector32(Get32BitValue(reader));
 
                     bytesToRead -= 4;
 
-                    var sections = CreateBitSections(6);
+                    var sections = CreateBitSections(chunkSize, (short)map.Length);
 
-                    for (var i = 0; i < 6; i++)
+                    for (var i = 0; i < chunkSize; i++)
                     {
                         writer.WriteByte(map[bitvector[sections[i]]]);
                     }
@@ -112,23 +104,49 @@ namespace SimpleCompressor
             }
         }
 
-        public static FileStream GetInputAsStream(string filepath)
+        private static FileStream GetInputAsStream(string filepath)
         {
             return File.OpenRead(filepath);
         }
 
-        public static FileStream GetOutputAsStream(string filepath)
+        private static FileStream GetOutputAsStream(string filepath)
         {
             return File.OpenWrite(filepath);
         }
 
-        public static int Get32BitValue(FileStream stream)
+        private static int Get32BitValue(FileStream stream)
         {
             var value = new byte[4];
 
             stream.Read(value);
 
             return BitConverter.ToInt32(value);
+        }
+
+        private static List<BitVector32.Section> CreateBitSections(int numberOfSections, short maxValue)
+        {
+            var sections = new List<BitVector32.Section>();
+
+            for (var i = 0; i < numberOfSections; i++)
+            {
+                sections.Add(i == 0
+                    ? BitVector32.CreateSection(maxValue)
+                    : BitVector32.CreateSection(maxValue, sections[i - 1]));
+            }
+
+            return sections;
+        }
+
+        private static int GetMinimumNumberOfBits(int value)
+        {
+            var r = 1;
+
+            while ((value >>= 1) != 0)
+            {
+                r++;
+            }
+
+            return r;
         }
     }
 }
