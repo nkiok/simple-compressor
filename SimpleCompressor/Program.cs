@@ -10,9 +10,11 @@ namespace SimpleCompressor
     {
         static void Main(string[] args)
         {
-            Compress(@"pic100.txt");
+            var filepath = args[0];
 
-            Decompress(@"pic100.compressed");
+            Compress(filepath);
+
+            Decompress(Path.ChangeExtension(filepath, "compressed"));
         }
 
         private static void Compress(string filepath)
