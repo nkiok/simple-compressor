@@ -1,15 +1,22 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.IO;
+using System.Linq;
 
-namespace SimpleCompression
+namespace SimpleCompressor
 {
     class Program
     {
         static void Main(string[] args)
         {
-            var filepath = @"E:\_dev\_git\simple-compressor\README.md";// args[0];
+            Compress(@"pic100.txt");
 
+            Decompress(@"pic100.compressed");
+        }
+
+        private static void Compress(string filepath)
+        {
             var unique = new HashSet<byte>();
 
             using (var reader = GetInputAsStream(filepath))
@@ -18,45 +25,108 @@ namespace SimpleCompression
 
                 do
                 {
-                    unique.Add((byte)reader.ReadByte());
+                    unique.Add((byte) reader.ReadByte());
 
                     bytesToRead--;
-
                 } while (bytesToRead > 0);
             }
 
+            var map = unique.ToList();
+
             using (var reader = GetInputAsStream(filepath))
+            using (var writer = GetOutputAsStream(Path.ChangeExtension(filepath, "compressed")))
             {
+                writer.WriteByte((byte)map.Count);
+                writer.Write(map.ToArray());
+
                 const int chunkSize = 6;
 
                 var bytesToRead = reader.Length;
 
-                var chunk = new byte[chunkSize];
-
-                var b32 = new BitVector32();
-
-                var sections = new List<BitVector32.Section>();
-
-                sections.Add(BitVector32.CreateSection(5));
-                sections.Add(BitVector32.CreateSection(5, sections[0]));
-                sections.Add(BitVector32.CreateSection(5, sections[1]));
-                sections.Add(BitVector32.CreateSection(5, sections[2]));
-                sections.Add(BitVector32.CreateSection(5, sections[3]));
-                sections.Add(BitVector32.CreateSection(5, sections[4]));
+                var buffer = new byte[chunkSize];
 
                 do
                 {
-                    var bytesRead = reader.Read(chunk);
+                    var bytesRead = reader.Read(buffer);
+
+                    var bitvector = new BitVector32(0);
+
+                    var sections = new List<BitVector32.Section>();
+
+                    sections.Add(BitVector32.CreateSection(15));
+                    sections.Add(BitVector32.CreateSection(15, sections[0]));
+                    sections.Add(BitVector32.CreateSection(15, sections[1]));
+                    sections.Add(BitVector32.CreateSection(15, sections[2]));
+                    sections.Add(BitVector32.CreateSection(15, sections[3]));
+                    sections.Add(BitVector32.CreateSection(15, sections[4]));
+
+                    for (var i = 0; i < bytesRead; i++)
+                    {
+                        bitvector[sections[i]] = map.IndexOf(buffer[i]);
+                    }
+
+                    writer.Write(BitConverter.GetBytes(bitvector.Data));
 
                     bytesToRead -= bytesRead;
-
                 } while (bytesToRead > 0);
             }
         }
 
-        public static FileStream GetInputAsStream(string filePath)
+        private static void Decompress(string filepath)
         {
-            return File.OpenRead(filePath);
+            using (var reader = GetInputAsStream(filepath))
+            using (var writer = GetOutputAsStream(Path.ChangeExtension(filepath, "decompressed.txt")))
+            {
+                var bytesToRead = reader.Length;
+
+                var mapCount = reader.ReadByte();
+
+                var map = new byte[mapCount];
+
+                reader.Read(map);
+
+                bytesToRead -= mapCount + 1;
+
+                do
+                {
+                    var bitvector = new BitVector32(Get32BitValue(reader));
+
+                    bytesToRead -= 4;
+
+                    var sections = new List<BitVector32.Section>();
+
+                    sections.Add(BitVector32.CreateSection(15));
+                    sections.Add(BitVector32.CreateSection(15, sections[0]));
+                    sections.Add(BitVector32.CreateSection(15, sections[1]));
+                    sections.Add(BitVector32.CreateSection(15, sections[2]));
+                    sections.Add(BitVector32.CreateSection(15, sections[3]));
+                    sections.Add(BitVector32.CreateSection(15, sections[4]));
+
+                    for (var i = 0; i < 6; i++)
+                    {
+                        writer.WriteByte(map[bitvector[sections[i]]]);
+                    }
+                } while (bytesToRead > 0);
+            }
+        }
+
+        public static FileStream GetInputAsStream(string filepath)
+        {
+            return File.OpenRead(filepath);
+        }
+
+        public static FileStream GetOutputAsStream(string filepath)
+        {
+            return File.OpenWrite(filepath);
+        }
+
+        public static int Get32BitValue(FileStream stream)
+        {
+            var value = new byte[4];
+
+            stream.Read(value);
+
+            return BitConverter.ToInt32(value);
         }
     }
 }
